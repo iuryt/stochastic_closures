@@ -11,18 +11,17 @@ for s in np.arange(30,37+1):
     data = h5py.File(fname,"r")
     for ω in tqdm(data["tasks"]["ω"]):
         l,m = ω.shape
-        ωhi = np.fft.fftshift(np.fft.fft2(ω))[np.newaxis,l//2:,m//2:]
+        ωhi = np.fft.fft2(ω)[np.newaxis,:l//2,:m//2]
         ωh.append(ωhi)
 ωh = np.vstack(ωh)
-kx,ky = np.meshgrid(*(2*[np.fft.fftshift(np.fft.fftfreq(l))[l//2:]]))
+kx,ky = np.meshgrid(*(2*[np.fft.fftfreq(l)[:l//2]]))
 K = np.abs(kx+1j*ky)
 
 def autocorrelation(A,n_lags=20):
-    nt,_,_ = A.shape
-    Ci = []
+    nt,ny,nx = A.shape
+    Ci = np.zeros((n_lags,ny,nx))
     for lag in tqdm(range(n_lags)):
-        Ci.append((1/(nt-lag+1))*(A[:nt-lag]*np.conj(A[lag:nt])).sum(0)[np.newaxis,:,:])
-    Ci = np.vstack(Ci)
+        Ci[lag,:] = (1 / (nt-lag+1)) * (A[:nt-lag] * np.conj(A[lag:nt])).sum(0)
     return Ci
 
 n_lags = 30
@@ -34,7 +33,7 @@ C = C/C[0,:,:]
 c = []
 k = []
 
-nk = 300+1
+nk = 10+1
 ks = kx[0,:][:nk]
 for kl,kh in tqdm(zip(ks[:-1],ks[1:]), total=len(ks[:-1])):
     N = ((K>=kl)&(K<kh))[np.newaxis,:,:]*np.ones(C.shape)
