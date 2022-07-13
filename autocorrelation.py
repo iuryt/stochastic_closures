@@ -3,102 +3,91 @@ import xarray as xr
 from xhistogram.xarray import histogram
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patheffects as path_effects
 from cmcrameri import cm
 from tqdm import tqdm
+from scipy.signal import correlate,correlation_lags
 
 ωh = []
-for s in np.arange(1,15+1):
+for s in tqdm(np.arange(1,20+1)):
     fname = f"../dns_runs/run1d2/snapshots/snapshots_s{s}.h5"
-    print(fname)
     data = h5py.File(fname,"r")
-    for ω in tqdm(data["tasks"]["ω"]):
-        l,m = ω.shape
-        ωhi = np.fft.fft2(ω)[np.newaxis,:l//2,:m//2]
-        ωh.append(ωhi)
+    ωh.append(np.fft.rfft2(data["tasks"]["ω"]))
 ωh = np.vstack(ωh)
-kx,ky = np.meshgrid(data["scales"]["kx"],data["scales"]["ky"][:l//2])
+
+l,m,n = ωh.shape 
+ky,kx = np.arange(m),np.arange(n)
 timestep = data["scales"]["timestep"][0]
 
-def autocorrelation(A,n_lags=20,norm=True):
-    nt,ny,nx = A.shape
-    
-    Ci = np.zeros((n_lags,ny,nx))+0*1j
-    for lag in tqdm(range(n_lags)):
-        Ci[lag,:] = (1 / (nt-lag+1)) * (A[:nt-lag] * np.conj(A[lag:nt])).sum(0)
-        
-    if norm:
-        Ci = Ci/Ci[0,:,:]
-    return Ci
 
-n_lags = 60
-C = autocorrelation(ωh,n_lags=n_lags)
+
+lags = correlation_lags(l,l)
+kbins = ky[::2]
+
+# allocate in memory the vector of number of points in each bin
+N = np.zeros(kbins.size-1)
+# allocate in memory the autocorrelation matrix C(k,lag)
+C = np.zeros((kbins.size-1,len(lags)))
+
+# run loop over ky and kx
+for i,kyi in enumerate(tqdm(ky)):
+    for j,kxj in enumerate(kx):
+        # get the time series for the fourier coeff
+        ωhij = ωh[:,i,j]
+        # calculate the autocorrelation using fft method
+        cij = correlate(ωhij,ωhij,method="fft").real # select the real part
+        cij = cij/cij[len(lags)//2] # scale by the zero-lagged correlation
+        
+        # find the bin indexes
+        kij = np.abs(kxj + 1j*kyi)
+        
+        try:
+            ind = np.argwhere((kij>=kbins)[:-1]&(kij<kbins)[1:])[0][0]
+
+            C[ind] = C[ind]+cij
+            N[ind] = N[ind]+1
+        except:
+            pass
+C = C/N[:,np.newaxis]
+ 
 
 C = xr.DataArray(
     C,
-    dims=("lag","kx","ky"),
+    dims=("k", "lag"),
     coords=dict(
-        lag=("lag", np.arange(n_lags)*timestep),
-        kx=("kx", kx[0]),
-        ky=("ky", ky.T[0]),
+        lag=("lag", lags*timestep),
+        k=("k", 0.5*(kbins[:-1]+kbins[1:])),
     )
+).sel(lag=slice(0,None)).T
+C = C/C.sel(lag=0)
+
+
+
+
+
+kw = dict(
+    cmap=cm.acton,
+    vmin=-0.1, vmax=1,
+    levels=np.arange(0, 1+0.1, 0.1),
+    add_colorbar=False,
 )
 
+fig, ax = plt.subplots(figsize=(7,4))
 
-nk = 1000+1
-bins = kx[0,:][:nk]
+h = C.plot.contourf(ax=ax, **kw)
+fig.colorbar(h, ax=ax, label="correlation")
+C.plot.contour(levels=[0.5], ax=ax, colors=["0.3"])
 
-K = np.abs(kx+1j*ky)
-K = xr.ones_like(C)*K
-K.name = "k"
+# txt = ax.text(0.5e1, 2.5e-3, "0.5")
+# txt.set_path_effects([path_effects.Stroke(linewidth=2, foreground='w'),
+#                        path_effects.Normal()])
 
-H = histogram(K, bins=bins, dim=["kx", "ky"])
-Ck = (
-    histogram(K, bins=bins, weights=C.real, dim=["kx", "ky"])/H+
- 1j*histogram(K, bins=bins, weights=C.imag, dim=["kx", "ky"])/H
-)
-Ck.name = "Correlation"
-Ck = Ck.assign_coords(lag=Ck.lag*timestep)
-
-
-
-
-
-k = Ck.k_bin.values[120:-1:150]
-fs = lambda ki,a,b: a + (ki-k.min())*(b-a)/(k.max()-k.min()) 
-fig, ax = plt.subplots(1,2,figsize=(10,5))
-
-np.abs(Ck).T.plot.contourf(cmap=cm.acton,ax=ax[0])
-for ki in k:
-    (
-        np.abs(Ck).sel(k_bin=ki).plot
-        .line(
-            x="lag",ax=ax[1],
-            label=f"{ki:.1f}",
-            color=f"{fs(ki,0.1,0.7):1f}"
-        )
-    )
-ax[1].legend(title="k")
-
-ax[0].set(
-    title="a)"+50*" ",
-    yticks=k,
-    ylabel="k"
+ax.set(
+    xscale="log",
+    yscale="log",
+    ylim=[1e-5,5e-3],
 )
 
-ax[1].set(
-    title="b)"+60*" ",
-    ylabel="",
-    xlim=[0,Ck.lag.max()],
-    ylim=[0,1]
-)
-_ = [a.grid(True, linestyle="--") for a in ax]
+ax.grid(True, linestyle="--")
 
-xticks = np.arange(0,Ck.lag.max(),4e-4)
-for a in ax:
-    a.set(
-        xlabel="time [10$^{-4}$]",
-        xticks=xticks,
-        xticklabels=[f"{xi*1e4:.0f}" for xi in xticks],
-    )
-
-fig.savefig("img/Cxt.png",dpi=300)
+fig.savefig("img/C.png", dpi=300, facecolor="w")
