@@ -7,6 +7,8 @@ from xhistogram.xarray import histogram
 from scipy import signal
 from cmcrameri import cm
 import matplotlib.pyplot as plt
+from glob import glob
+
 
 njobs = 100
 
@@ -21,13 +23,15 @@ from dask.diagnostics import ProgressBar
 client = Client(cluster)  # Connect this local process to remote workers
 
 
-from glob import glob
-
-fnames = glob("data/omega_run*")
+fnames = glob("../../data/omega_run*")
 fnames.sort()
 
 
 data = {noise:xr.open_dataset(fnames[i]).ωk for i,noise in enumerate([0,1e-6,1e-8,1e-10,1e-12])}
+
+
+noise1 = 0
+noise2 = 1e-12
 
 
 @dask.delayed
@@ -63,9 +67,6 @@ def compute_C(kx_slice,noise1,noise2,kbins):
     return C
 
 
-noise1 = 0
-noise2 = 1e-12
-
 kbins = np.arange(np.ceil(np.abs(data[0].kx + 1j*data[0].ky).max().values)+2)[::2]
 kx_slices = np.array_split(data[0].kx.values,500)
 
@@ -85,7 +86,7 @@ C = xr.DataArray(
 ).T/H
 
 fname = f"{-np.log10(noise2):.0f}"
-C.to_netcdf(f"data/C_{fname}.nc")
+C.to_netcdf(f"../../data/C_{fname}.nc")
 
 
 
@@ -118,4 +119,4 @@ ax.set(
     ylabel="lag"
 )
 
-fig.savefig(f"img/{fname}.png",facecolor="w",dpi=200)
+fig.savefig(f"../../img/{fname}.png",facecolor="w",dpi=200)
