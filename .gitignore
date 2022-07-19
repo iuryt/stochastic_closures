@@ -3,8 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-
+# data folder
 data/
+# for now, ignore img folder
+img/
+
 
 # C extensions
 *.so
