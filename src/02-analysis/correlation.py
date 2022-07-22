@@ -8,7 +8,7 @@ from tqdm import tqdm
 from scipy import signal
 
 
-def correlate(x1,x2=None,method="numpy",normalize=True):
+def correlate(x1,x2=None,method="scipy",normalize=True):
     
     if x2 is None:
         x2 = x1
@@ -18,7 +18,7 @@ def correlate(x1,x2=None,method="numpy",normalize=True):
     lags = signal.correlation_lags(len(x1),len(x2))
 
     if method=="scipy":
-        c = (1/(n-lags+1))*signal.correlate(x1,x2,method="auto")
+        c = (1/(n-lags))*signal.correlate(x1,x2,method="fft")
         c = c[len(lags)//2:]
     elif method=="numpy":
         c = []
@@ -43,11 +43,12 @@ if __name__ == "__main__":
     n = 1000
     a = 0#5e-1
     t = np.linspace(0,10*np.pi,n)
-    x = np.sin(t) + a*np.random.randn(n) + 10 + 1j*np.cos(t)
+    x = np.sin(t) + a*np.random.randn(n)
 
     lags,c = correlate(x,method="scipy")
     lags,ci = correlate(x,method="numpy")
 
+    print(np.allclose(c,ci))
 
     fig,ax = plt.subplots()
     ax.plot(lags*np.diff(t)[0],c)

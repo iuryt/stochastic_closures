@@ -1,10 +1,85 @@
+import h5py
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
 from glob import glob
 from cmcrameri import cm
 
+fname = "/work/isimoesdesousa_umassd_edu/projects/GFD/dns_runs/run1d2/snapshots/snapshots_s1.h5"
+data = h5py.File(fname,"r")
+
 noises = [0,1e-6,1e-8,1e-10,1e-12]
+
+def get_scalars(run_name,noise):
+    
+    fnames = glob(f"../../../dns_runs/{run_name}/scalars/scalars_s*.h5")
+    fnames.sort()
+    
+    E = []
+    Z = []
+    time = []
+    for fname in fnames:
+        data = h5py.File(fname,"r")
+        E.append(np.ravel(data["tasks"]["E"][:]))
+        Z.append(np.ravel(data["tasks"]["Z"][:]))
+        time.append(np.ravel(data["scales"]["sim_time"][:]))
+    
+    time = np.hstack(time)
+    ind = np.argsort(time)
+    
+    E = np.hstack(E)[ind]
+    Z = np.hstack(Z)[ind]
+    time = time[ind]
+    
+    # time = time-time[0]
+    
+    
+    E = (
+            xr.DataArray(E,dims=("time"),coords=dict(time=("time",time)))
+            .expand_dims("noise").rename("E")
+        ).assign_coords(noise=("noise",[noise]))
+
+    
+    Z = (
+            xr.DataArray(Z,dims=("time"),coords=dict(time=("time",time)))
+            .expand_dims("noise").rename("Z")
+        ).assign_coords(noise=("noise",[noise]))
+    
+    return xr.merge([E,Z])
+
+
+ds = []
+for i,run_name in enumerate(["run1c"]):
+    dsi = get_scalars(run_name,0)
+    ds.append(dsi)
+scalars = xr.merge(ds,compat="override") 
+
+ds = []
+for i,run_name in enumerate(["run1d2"]+[f"run{i}" for i in range(2,5+1)]):
+    dsi = get_scalars(run_name,noises[i])
+    ds.append(dsi)
+    
+scalars = xr.concat([scalars,xr.merge(ds)],"time")
+
+tmin = scalars.time.min().values
+tmid = scalars.sel(noise=1e-6).dropna("time").time.min().values
+tmax = scalars.sel(noise=1e-6).dropna("time").time.max().values
+
+fig,ax = plt.subplots(1,2)
+fig.subplots_adjust(wspace=0.01)
+for a in ax:
+    scalars.E.plot.line(ax=a,hue="noise",add_legend=False)
+    a.grid(True, linestyle="--", alpha=0.5)
+    
+ax[0].legend(noises,title="Noise")
+ax[0].set(
+    xlim=[tmin,tmid]
+)
+ax[1].set(
+    ylabel="",
+    yticklabels=[],
+    xlim=[tmid,tmax]
+)
 
 ds = []
 for noise in noises:
