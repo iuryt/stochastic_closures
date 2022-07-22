@@ -11,7 +11,7 @@ mesh = None
 ε = 1  # Energy injection rate
 kf = 32  # Forcing wavenumber
 kfw = 2  # Forcing width
-seed = None
+seed = 42
 
 # Physical parameters
 # Prescribed
@@ -31,11 +31,11 @@ safety = 0.5
 dt = safety * dx / Uα
 ts = "RK443"
 stop_sim_time = np.inf
-stop_wall_time = 60*60*2
+stop_wall_time = 60*60*3
 scalars_iter = 10
 snapshots_iter = 10
 stop_iteration = np.inf
 
 # Noise parameters for ensembles (add to ψ)
-amp = 1e-6
-#-6, -8, -10, -12
+amp = 0
+# -2, -4, -6
