@@ -51,29 +51,22 @@ solver.stop_wall_time = param.stop_wall_time
 solver.stop_iteration = param.stop_iteration
 logger.info('Solver built')
 
-
-
 # Initial conditions
 if pathlib.Path('restart.h5').exists():
     _, dt = solver.load_state('restart.h5', -1)
-    solver.state["ψ"]["g"] += param.amp*np.random.randn(*solver.state["ψ"]["g"].shape)
+    cshape = solver.state["ψ"]['c'].shape
+    noise = np.random.randn(*cshape) + 1j*np.random.randn(*cshape)
+    k2 = kx**2 + ky**2
+    solver.state["ψ"]["c"] += param.amp * noise / ((k2==0) + k2**(3/4)) / np.sqrt(2 * np.pi)
+    if not param.enable_CFL:
+        dt = param.safety * dt
     solver.stop_sim_time += solver.sim_time
 else:
     dt = param.dt
     
-dt = dt/2
-
-
-
 # Analysis
 snapshots = solver.evaluator.add_file_handler('snapshots', iter=param.snapshots_iter, max_writes=10, mode='overwrite')
-snapshots.add_system(solver.state)
-snapshots.add_task("Fω")
-snapshots.add_task("ux")
-snapshots.add_task("uy")
-snapshots.add_task("ω")
-snapshots.add_task("e")
-snapshots.add_task("z")
+snapshots.add_task("ψ", layout='c')
 scalars = solver.evaluator.add_file_handler('scalars', iter=param.scalars_iter, max_writes=100, mode='overwrite')
 scalars.add_task("mean(e)", name='E')
 scalars.add_task("mean(z)", name='Z')
@@ -83,12 +76,13 @@ scalars.add_task("mean(ν*(ux*Lap(ux) + uy*Lap(uy)))", name='εν')
 scalars.add_task("mean(ν*ω*Lap(ω))", name='ην')
 
 # CFL
-#CFL = flow_tools.CFL(solver, initial_dt=dt, cadence=10, safety=param.safety,
-#                     max_change=1.5, min_change=0.5, max_dt=param.dt, threshold=0.05)
-#CFL.add_velocities(('ux', 'uy'))
+if param.enable_CFL:
+    CFL = flow_tools.CFL(solver, initial_dt=dt, cadence=10, safety=param.safety,
+                         max_change=1.5, min_change=0.5, max_dt=param.dt, threshold=0.05)
+    CFL.add_velocities(('ux', 'uy'))
 
 # Flow properties
-flow = flow_tools.GlobalFlowProperty(solver, cadence=100)
+flow = flow_tools.GlobalFlowProperty(solver, cadence=param.print_iteration)
 flow.add_property("mean(e)", name='E')
 
 # Main loop
@@ -96,15 +90,15 @@ try:
     logger.info('Starting loop')
     start_time = time.time()
     while solver.ok:
-        #dt = CFL.compute_dt()
-
+        if param.enable_CFL:
+            dt = CFL.compute_dt()
         # Change forcing
         Fx['c'], Fy['c'] = draw(kx, ky)
         # Project onto grid space and scale
         Fx['g'] *= (param.ε / dt)**0.5
         Fy['g'] *= (param.ε / dt)**0.5
         solver.step(dt)
-        if (solver.iteration-1) % 100 == 0:
+        if (solver.iteration-1) % param.print_iteration == 0:
             logger.info('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
             logger.info('Mean KE/M = %f' %flow.max('E'))
 except:

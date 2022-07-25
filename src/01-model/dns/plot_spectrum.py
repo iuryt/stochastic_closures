@@ -27,9 +27,6 @@ x_basis = de.Fourier('x', param.N, interval=(0, param.L), dealias=3/2)
 y_basis = de.Fourier('y', param.N, interval=(0, param.L), dealias=3/2)
 domain = de.Domain([x_basis, y_basis], grid_dtype=np.float64, comm=MPI.COMM_SELF)
 
-ux = domain.new_field()
-uy = domain.new_field()
-
 kx = domain.elements(0)
 ky = domain.elements(1)
 dkx = dky = 2 * np.pi / param.L
@@ -55,15 +52,14 @@ def main(filename, start, count, output):
     with h5py.File(filename, mode='r') as file:
         for index in range(start, start+count):
             # Load data
-            ux['g'] = file['tasks']['ux'][index]
-            uy['g'] = file['tasks']['uy'][index]
+            ψc = file['tasks']['ψ'][index]
             # Compute 1D spectrum samples
-            E_k2 = (np.abs(ux['c'])**2 + np.abs(uy['c'])**2) / dkx / dky
-            E_k1 = E_k2 * np.pi * k
+            E_k2 = 0.5 * k**2 * np.abs(ψc)**2 / dkx / dky
+            E_k1 = E_k2 * 2 * np.pi * k
             E_k1 *= (2 - (kx == 0))  # Double-count positive kx because of R2C transform
             # Plot histogram
             pow_samples, _ = np.histogram(k, bins=bins, weights=E_k1)
-            spectrum = pow_samples / hist_samples
+            spectrum = pow_samples / hist_samples / np.diff(bins)
             plt.loglog(kcen, param.ε**(2/3)*kcen**(-5/3), '--k')
             plt.loglog(kcen, param.η**(2/3)*kcen**(-3), '--k')
             plt.loglog(kcen, spectrum, '.-')

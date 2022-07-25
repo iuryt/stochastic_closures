@@ -29,12 +29,14 @@ dx = L / N
 Uα = ε**(1/3) * lα**(1/3)
 safety = 0.5
 dt = safety * dx / Uα
+enable_CFL = True
 ts = "RK443"
 stop_sim_time = 1
 stop_wall_time = 60*60*7
 scalars_iter = 50
 snapshots_iter = 100
 stop_iteration = np.inf
+print_iteration = 100
 
 # Noise parameters for ensembles (add to ψ)
 amp = 0
