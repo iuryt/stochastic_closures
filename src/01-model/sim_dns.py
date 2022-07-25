@@ -25,7 +25,6 @@ Fy = domain.new_field()
 kx = domain.elements(0)
 ky = domain.elements(1)
 
-
 # Problem
 problem = de.IVP(domain, variables=['ψ'])
 problem.parameters['L'] = param.L
@@ -58,6 +57,7 @@ logger.info('Solver built')
 if pathlib.Path('restart.h5').exists():
     _, dt = solver.load_state('restart.h5', -1)
     solver.state["ψ"]["g"] += param.amp*np.random.randn(*solver.state["ψ"]["g"].shape)
+    solver.stop_sim_time += solver.sim_time
 else:
     dt = param.dt
     
