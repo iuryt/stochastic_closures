@@ -30,10 +30,10 @@ Uα = ε**(1/3) * lα**(1/3)
 safety = 0.5
 dt = safety * dx / Uα
 ts = "RK443"
-stop_sim_time = np.inf
-stop_wall_time = 60*60*3
-scalars_iter = 10
-snapshots_iter = 10
+stop_sim_time = 1
+stop_wall_time = 60*60*7
+scalars_iter = 50
+snapshots_iter = 100
 stop_iteration = np.inf
 
 # Noise parameters for ensembles (add to ψ)
