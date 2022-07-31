@@ -5,47 +5,7 @@ import matplotlib.pyplot as plt
 from glob import glob
 from cmcrameri import cm
 
-fname = "/work/isimoesdesousa_umassd_edu/projects/GFD/dns_runs/run1d2/snapshots/snapshots_s1.h5"
-data = h5py.File(fname,"r")
 
-noises = [0,1e-6,1e-8,1e-10,1e-12]
-
-def get_scalars(run_name,noise):
-    
-    fnames = glob(f"../../../dns_runs/{run_name}/scalars/scalars_s*.h5")
-    fnames.sort()
-    
-    E = []
-    Z = []
-    time = []
-    for fname in fnames:
-        data = h5py.File(fname,"r")
-        E.append(np.ravel(data["tasks"]["E"][:]))
-        Z.append(np.ravel(data["tasks"]["Z"][:]))
-        time.append(np.ravel(data["scales"]["sim_time"][:]))
-    
-    time = np.hstack(time)
-    ind = np.argsort(time)
-    
-    E = np.hstack(E)[ind]
-    Z = np.hstack(Z)[ind]
-    time = time[ind]
-    
-    # time = time-time[0]
-    
-    
-    E = (
-            xr.DataArray(E,dims=("time"),coords=dict(time=("time",time)))
-            .expand_dims("noise").rename("E")
-        ).assign_coords(noise=("noise",[noise]))
-
-    
-    Z = (
-            xr.DataArray(Z,dims=("time"),coords=dict(time=("time",time)))
-            .expand_dims("noise").rename("Z")
-        ).assign_coords(noise=("noise",[noise]))
-    
-    return xr.merge([E,Z])
 
 
 ds = []
