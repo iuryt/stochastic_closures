@@ -14,7 +14,10 @@ path = lambda run: f"../../../dns_runs/run1/noise_test/{run}/snapshots/*.h5"
 runa = "noise00"
 da = dataloader.load_task_data(path(runa), params.task, params.kmax)
 
-for runb in ["noise00", "noise04a", "noise08a", "noise12a"]:
+for runb in params.noise_runs:
+
+    if runb!=runa:
+        runb = f"{runb}b"
 
     print(f"{runa}_{runb}")
     db = dataloader.load_task_data(path(runb), params.task, params.kmax)
@@ -29,7 +32,7 @@ for runb in ["noise00", "noise04a", "noise08a", "noise12a"]:
 # %%
 # Cross-correlation between same noise amplitude
 
-for run in ["noise04", "noise08", "noise12"]:
+for run in params.noise_runs[1:]:
     
     runa = f"{run}a"
     runb = f"{run}b"

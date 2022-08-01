@@ -1,89 +1,121 @@
-import h5py
+
+# %%
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
 from glob import glob
 from cmcrameri import cm
+import params
+
+# %%
+
+def plot(ds):
+    fig, ax = plt.subplots(2,len(noise),figsize=(12,4))
+
+    for i,axi in enumerate(np.array(ax).T):
+        hc = ds.isel(noise=i, k=slice(1,None)).correlation.plot.contourf(ax=axi[0], **kw["correlation"]["contourf"])
+        he = ds.isel(noise=i, k=slice(1,None)).error.plot.contourf(ax=axi[1], **kw["error"]["contourf"])
+
+        axi[0].set(
+            yscale="log",
+            ylim=[1e-4,ds.time.max()],
+        )
+
+        axi[1].set(
+            yscale="log",
+            ylim=[1e-4,ds.time.max()],
+        )
+
+    fig.colorbar(hc, ax=ax[0,:], label="Correlation")
+    fig.colorbar(he, ax=ax[1,:], label="Error")
 
 
+    for a in np.ravel(ax):
+        a.set(
+            xscale="log",
+            xlabel="k",
+            ylabel="time",
+        )
 
+    _ = [a.set(yticklabels=[], ylabel="") for a in np.ravel(ax[:,1:])]
+    _ = [a.set(xticklabels=[], xlabel="") for a in np.ravel(ax[0,:])]
 
-ds = []
-for i,run_name in enumerate(["run1c"]):
-    dsi = get_scalars(run_name,0)
-    ds.append(dsi)
-scalars = xr.merge(ds,compat="override") 
+    _ = [a.grid(True, linestyle="--", alpha=0.7) for a in np.ravel(ax)]
 
-ds = []
-for i,run_name in enumerate(["run1d2"]+[f"run{i}" for i in range(2,5+1)]):
-    dsi = get_scalars(run_name,noises[i])
-    ds.append(dsi)
-    
-scalars = xr.concat([scalars,xr.merge(ds)],"time")
+    return fig, ax
 
-tmin = scalars.time.min().values
-tmid = scalars.sel(noise=1e-6).dropna("time").time.min().values
-tmax = scalars.sel(noise=1e-6).dropna("time").time.max().values
-
-fig,ax = plt.subplots(1,2)
-fig.subplots_adjust(wspace=0.01)
-for a in ax:
-    scalars.E.plot.line(ax=a,hue="noise",add_legend=False)
-    a.grid(True, linestyle="--", alpha=0.5)
-    
-ax[0].legend(noises,title="Noise")
-ax[0].set(
-    xlim=[tmin,tmid]
-)
-ax[1].set(
-    ylabel="",
-    yticklabels=[],
-    xlim=[tmid,tmax]
-)
-
-ds = []
-for noise in noises:
-    fname = f"data/C_{-np.log10(noise):.0f}.nc" if noise!=0 else f"data/C_0.nc"
-    ds.append(xr.open_dataset(fname))
-ds = xr.concat(ds,dim="noise").assign_coords(noise=noises)
-C = ds.__xarray_dataarray_variable__
-
-
+# %%
 
 kw = dict(
-    contourf = dict(
-        cmap=cm.acton,
-        vmin=-0.1, vmax=1,
-        levels=np.arange(0, 1+0.1, 0.1),
-        add_colorbar=False,
-        extend="both",
-    ),
-    contour = dict(
-        levels=[0.5],
-        colors=["0.3"],
-        linestyles="--"
+    correlation = dict(
+            contourf = dict(
+                cmap=cm.acton,
+                vmin=-0.1, vmax=1,
+                levels=np.arange(0, 1+0.1, 0.1),
+                add_colorbar=False,
+                extend="both",
+            ),
+            contour = dict(
+                levels=[0.5],
+                colors=["0.3"],
+                linestyles="--"
+            )
+        ),
+    error = dict(
+            contourf = dict(
+                cmap=cm.devon,
+                vmin=0, vmax=1,
+                levels=np.arange(0, 1+0.1, 0.1),
+                add_colorbar=False,
+                extend="both",
+            ),
     )
 )
 
-fig, ax = plt.subplots(1,5,figsize=(12,4))
 
-for i,a in enumerate(ax):
-    
-    h = C.isel(noise=i).plot.contourf(ax=a, **kw["contourf"])
-    C.isel(noise=i).plot.contour(ax=a, **kw["contour"])
-    
-    a.grid(True, linestyle="--", alpha=0.7, color="0.1")
-    a.set(
-        yscale="log",
-        xscale="log",
-        ylim=[1e-5,C.lag.max()],
-        xlabel="k",
-        ylabel="lag",
-        xticks=[1,10,100,1000]
-    )
-    
-ax[0].set(title="autocorrelation")
-_ = [a.set(ylabel="", yticklabels=[]) for a in ax[1:]]
-fig.colorbar(h, ax=ax, orientation="horizontal", label="correlation", shrink=0.3, pad=0.2)
+# %%
 
-fig.savefig("img/C_noise.png", facecolor="w", dpi=300, bbox_inches="tight")
+print("Auto/cross-correlation noise-free and noisy simulations")
+fnames = glob("../../data/noise00*")
+fnames.sort()
+
+noise = [0]
+for fname in fnames:
+    exp = -int(fname.split("noise")[-1].split("a")[0].split("b")[0].split(".")[0])
+    if exp!=0:
+        noise.append(10**exp)
+
+ds = xr.open_mfdataset(fnames, concat_dim="noise", combine="nested")
+ds = ds.assign_coords(noise=noise)
+
+ds = ds.sortby("noise")
+
+print("Done loading data")
+
+fig, ax = plot(ds)
+ax[0,0].set_title("Autocorrelation")
+fig.savefig("../../img/CE_noise.png", **params.kw["savefig"])
+print("Done saving figure")
+
+# %%
+
+print("Compare runs with the same noise amplitude")
+fnames = list(set(glob("../../data/noise*"))-set(glob("../../data/noise00*")))
+fnames.sort()
+
+noise = []
+for fname in fnames:
+    exp = -int(fname.split("noise")[-1].split("b")[0].split(".")[0])
+    noise.append(10**exp)
+
+ds = xr.open_mfdataset(fnames, concat_dim="noise", combine="nested")
+ds = ds.assign_coords(noise=noise)
+
+ds = ds.sortby("noise")
+
+print("Done loading data")
+
+fig, ax = plot(ds)
+fig.savefig("../../img/CE_noise_ab.png", **params.kw["savefig"])
+print("Done saving figure")
+
