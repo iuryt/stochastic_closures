@@ -57,7 +57,7 @@ if pathlib.Path('restart.h5').exists():
     cshape = solver.state["ψ"]['c'].shape
     noise = np.random.randn(*cshape) + 1j*np.random.randn(*cshape)
     k2 = kx**2 + ky**2
-    solver.state["ψ"]["c"] += param.amp * noise / ((k2==0) + k2**(3/4)) / np.sqrt(2 * np.pi)
+    solver.state["ψ"]["c"] += param.noise_amp * noise / ((k2==0) + k2**(3/4)) / np.sqrt(2 * np.pi)
     if not param.enable_CFL:
         dt = param.safety * dt
     solver.stop_sim_time += solver.sim_time
