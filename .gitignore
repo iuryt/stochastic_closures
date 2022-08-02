@@ -8,6 +8,9 @@ data/
 # for now, ignore img folder
 img/
 
+# stdout and stderr logs of the experiments
+*.err
+*.out
 
 # C extensions
 *.so
