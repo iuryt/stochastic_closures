@@ -14,7 +14,10 @@ def create_submit_simulation(args,i):
     import numpy as np
     
     # Create the simulation name
-    sim_name = f'{{}}noise_{{:.0f}}_{{:0{np.ceil(np.log10(args.n_ensembles)).astype(int)+1}.0f}}'.format(args.prefix, args.noise_amp, i)
+    if args.noise:
+        sim_name = f'{{}}noise_{{:03.0f}}_{{:0{np.ceil(np.log10(args.n_ensembles)).astype(int)+1}.0f}}'.format(args.prefix, -args.noise_amp, i)
+    else:
+        sim_name = f'{{}}no_noise_{{:0{np.ceil(np.log10(args.n_ensembles)).astype(int)+1}.0f}}'.format(args.prefix, i)
 
     # Create the simulation directory
     sim_dir = os.path.join(args.output_dir, sim_name)
@@ -25,7 +28,7 @@ def create_submit_simulation(args,i):
     os.symlink(args.setup_file, os.path.join(sim_dir, 'setup.sh'))
 
     # Create symbolic link to the restart file
-    os.symlink(args.restart_file, os.path.join(sim_dir, 'restart.sh'))
+    os.symlink(args.restart_file, os.path.join(sim_dir, 'restart.h5'))
 
     print("Created symbolic links to the setup and restart files.")
 
@@ -46,8 +49,12 @@ def create_submit_simulation(args,i):
 
     # Add the noise amplitude to param_dns.py
     with open(os.path.join(sim_dir, 'param_dns.py'), 'a') as f:
-        f.write('\n')
-        f.write('noise_amp = {}\n'.format(10**(-args.noise_amp/2)))
+        if args.noise:
+            f.write('\n')
+            f.write('noise_amp = {}\n'.format(10**(args.noise_amp/2)))
+        else:
+            f.write('\n')
+            f.write('noise_amp = 0\n')
 
     print("Added the noise amplitude to param_dns.py.")
 
@@ -84,8 +91,8 @@ def create_batch_file(partition, nodes, ntasks_per_node, time, job_name, output_
         f.write('#SBATCH --ntasks-per-node={}\n'.format(ntasks_per_node))
         f.write('#SBATCH --time={}\n'.format(time))
         f.write('#SBATCH --job-name={}\n'.format(job_name))
-        f.write('#SBATCH --output={}/%job.out\n'.format(output_dir))
-        f.write('#SBATCH --error={}/%job.err\n'.format(output_dir))
+        f.write('#SBATCH --output={}/job.out\n'.format(output_dir))
+        f.write('#SBATCH --error={}/job.err\n'.format(output_dir))
         f.write('\n')
         f.write('bash run_commands.sh\n')
 
@@ -111,20 +118,20 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--partition', type=str, default='xeon-p8', help='Partition to run the job on')
-    parser.add_argument('--nodes', type=int, default=4, help='Number of nodes to run the job on')
+    parser.add_argument('--nodes', type=int, default=8, help='Number of nodes to run the job on')
     parser.add_argument('--ntasks_per_node', type=int, default=48, help='Number of tasks to run on each node')
     parser.add_argument('--time', type=str, default='15:00:00', help='Time to run the job for')
     parser.add_argument('--output_dir', type=str, default='output', help='Directory to output the job to')
-    parser.add_argument('--noise_amp', type=float, default=0, help='Noise amplitude (10**(-amp)) added to the kinetic energy spectrum')
-    parser.add_argument('--prefix', type=str, default='ensemble_', help='Prefix for the simulation')
-    parser.add_argument('--seed', type=int, default=42, help='Seed for the random number generator')
+    parser.add_argument('--noise_amp', type=float, default=0, help='Noise amplitude (10**(-amp)) added to the kinetic energy spectrum (ignored if --no-noise is set)')
+    parser.add_argument('--noise', default=False, action=argparse.BooleanOptionalAction, help='Add noise to the kinetic energy spectrum')
+    parser.add_argument('--prefix', type=str, default='', help='Prefix for the simulation')
     parser.add_argument('--n_ensembles', type=int, default=1, help='Number of ensembles to run')
     parser.add_argument('--submit', default=True, action=argparse.BooleanOptionalAction, help='Whether to submit the ensembles')
     parser.add_argument('--setup_file', type=str, default='../../../../setup.sh', help='Path to the setup file')
     parser.add_argument('--restart_file', type=str, default='../../../../restart.h5', help='Path to the restart file')
     args = parser.parse_args()
 
-    print("Creating {} ensembles with noise amplitude {}".format(args.n_ensembles, args.noise_amp))
+    print("Creating {} ensembles with noise amplitude 1e{}".format(args.n_ensembles, args.noise_amp))
 
     # Loop over the number of ensembles
     for i in range(args.n_ensembles):
