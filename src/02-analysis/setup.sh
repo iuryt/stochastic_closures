@@ -1,1 +1,0 @@
-../../../dns_runs/setup.sh
