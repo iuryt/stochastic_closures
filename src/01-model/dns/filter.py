@@ -29,28 +29,24 @@ class Convolve(Operator, FutureField):
         np.multiply(arg0.data, arg1.data, out=out.data)
 
 
-def build_sharp_filter(domain, N, norm=2):
-    """Build sharp filter operator."""
-    kmax = (N - 1) // 2
+def build_filter(domain, method, N, parameter, norm=2):
+    """Build filter operator."""
     kn = domain.all_elements()
     kn = np.meshgrid(*[ki.ravel() for ki in kn], indexing='ij')
     knorm = np.linalg.norm(kn, axis=0, ord=norm)
     eta = domain.new_field(name='eta')
-    eta['c'] = 1
-    eta['c'][knorm > kmax] = 0
+    if method=="sigma":
+        eta['c'] = np.exp(-0.5*(knorm / parameter)**2)
+    elif method=="epsilon":
+        kcut = (N - 1) // 2
+        eta['c'] = np.exp(np.log(parameter) * (knorm / kcut)**2)
+    elif method=="mu":
+        kcut = (N - 1) // 2
+        eta['c'] = np.exp(-0.5 * (knorm / (parameter * kcut))**2)
+    elif method=="sharp":
+        eta['c'] = 1
+        eta['c'][knorm > parameter] = 0
+    else:
+        raise ValueError("method must be either 'sigma', 'epsilon', 'mu', or 'sharp'")
     Filter = lambda field, eta=eta: Convolve(eta, field)
     return Filter
-
-
-def build_gaussian_filter(domain, N, epsilon, norm=2):
-    """Build gaussian filter operator."""
-    kcut = (N - 1) // 2
-    kn = domain.all_elements()
-    kn = np.meshgrid(*[ki.ravel() for ki in kn], indexing='ij')
-    knorm = np.linalg.norm(kn, axis=0, ord=norm)
-    eta = domain.new_field(name='eta')
-    eta['c'] = np.exp(np.log(epsilon) * (knorm / kcut)**2)
-    Filter = lambda field, eta=eta: Convolve(eta, field)
-    return Filter
-
-
