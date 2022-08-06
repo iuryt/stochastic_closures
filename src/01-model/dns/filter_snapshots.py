@@ -1,12 +1,23 @@
-
 """
 Filter and compute subgrid stresses from saved output.
 
+Methods:
+    sigma: f = exp(-0.5*(k/parameter)**2)
+    epsilon: f = exp(log(parameter) * (k / kcut)**2)
+    mu: f = exp(-0.5 * (k / (parameter * kcut))**2))
+    sharp: f = 1 if k < kcut else 0
+
+kcut: cutoff wavenumber for epsilon  (N_filt - 1) // 2
+
 Usage:
-    filter_snapshots.py <N_filt> <mlog10_ep> <files>... [--output=<dir>] 
+    filter_snapshots.py sigma <parameter> <N_filt> <files>... [--output=<dir>]
+    filter_snapshots.py epsilon <parameter> <N_filt> <files>... [--output=<dir>]
+    filter_snapshots.py mu <parameter> <N_filt> <files>... [--output=<dir>]
+    filter_snapshots.py sharp <parameter> <N_filt> <files>... [--output=<dir>]
 
 Options:
     --output=<dir>  Output directory [default: ./filtered]
+    -h --help     Show this screen.
 
 """
 
@@ -18,7 +29,7 @@ import numpy as np
 import param_dns
 
 
-def save_subgrid_fields(filename, N_filt, epsilon, output_path, comm):
+def save_subgrid_fields(filename, method, parameter, N_filt, output_path, comm):
     """Compute and save subgrid velocity, stress, and strain components."""
     if comm.rank == 0:
         print(filename)
@@ -38,7 +49,7 @@ def save_subgrid_fields(filename, N_filt, epsilon, output_path, comm):
         dy = domain.bases[1].Differentiate
         ux = dy(ψ).evaluate()
         uy = (-dx(ψ)).evaluate()
-        F = filter.build_gaussian_filter(domain, N_filt, epsilon)
+        F = filter.build_filter(domain, method, parameter, N=N_filt)
         out['ux'] = F_ux = F(ux).evaluate()
         out['uy'] = F_uy = F(uy).evaluate()
         if comm.rank == 0: 
@@ -70,9 +81,11 @@ def save_subgrid_fields(filename, N_filt, epsilon, output_path, comm):
             print('Done converting to xarray')
         # Save to netcdf
         if comm.rank == 0:
-            input_path = pathlib.Path(filename)
             output_filename = output_path.joinpath(f"write_{write}.nc")
             ds = xr.Dataset(out)
+            ds.attrs['method'] = method
+            ds.attrs['parameter'] = parameter
+            ds.attrs['N_filt'] = N_filt
             ds.to_netcdf(output_filename)
         comm.barrier()
     if comm.rank == 0: 
@@ -88,9 +101,21 @@ if __name__ == "__main__":
     from mpi4py import MPI
 
     args = docopt(__doc__)
+
+    # Get the filenames
     files = args['<files>']
+
+    # Get method
+    for key in ["sigma", "epsilon", "mu"]:
+        if args[key]:
+            method = key
+            break
+
+    # Get N_filt and parameter
     N_filt = int(args['<N_filt>'])
-    epsilon = 10**(-float(args['<mlog10_ep>']))
+    parameter = args['<parameter>']
+
+    # Get output directory
     output_path = pathlib.Path(args['--output']).absolute()
 
     # Create output directory if needed
@@ -101,6 +126,6 @@ if __name__ == "__main__":
     
     # Loop over files
     for filename in files:
-        save_subgrid_fields(filename, N_filt, epsilon, output_path, MPI.COMM_WORLD)
+        save_subgrid_fields(filename, method, N_filt, parameter, output_path, MPI.COMM_WORLD)
 
  
