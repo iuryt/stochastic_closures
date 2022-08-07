@@ -13,7 +13,7 @@ Usage:
     filter_snapshots.py sigma <parameter> <N_filt> <files>... [--output=<dir>]
     filter_snapshots.py epsilon <parameter> <N_filt> <files>... [--output=<dir>]
     filter_snapshots.py mu <parameter> <N_filt> <files>... [--output=<dir>]
-    filter_snapshots.py sharp <parameter> <N_filt> <files>... [--output=<dir>]
+    filter_snapshots.py sharp <N_filt> <files>... [--output=<dir>]
 
 Options:
     --output=<dir>  Output directory [default: ./filtered]
