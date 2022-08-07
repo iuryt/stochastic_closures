@@ -113,10 +113,12 @@ if __name__ == "__main__":
 
     # Get N_filt and parameter
     N_filt = int(args['<N_filt>'])
-    parameter = args['<parameter>']
+    parameter = float(args['<parameter>'])
 
     # Get output directory
     output_path = pathlib.Path(args['--output']).absolute()
+
+    print(f"Filtering {method} with parameter {parameter} and N_filt {N_filt}")
 
     # Create output directory if needed
     with Sync() as sync:
@@ -126,6 +128,6 @@ if __name__ == "__main__":
     
     # Loop over files
     for filename in files:
-        save_subgrid_fields(filename, method, N_filt, parameter, output_path, MPI.COMM_WORLD)
+        save_subgrid_fields(filename, method, parameter, N_filt, output_path, MPI.COMM_WORLD)
 
  
