@@ -29,7 +29,7 @@ class Convolve(Operator, FutureField):
         np.multiply(arg0.data, arg1.data, out=out.data)
 
 
-def build_filter(domain, method, N, parameter, norm=2):
+def build_filter(domain, method, parameter, N=np.inf, norm=2):
     """Build filter operator."""
     kn = domain.all_elements()
     kn = np.meshgrid(*[ki.ravel() for ki in kn], indexing='ij')
