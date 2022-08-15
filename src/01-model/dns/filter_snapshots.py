@@ -34,6 +34,7 @@ def save_subgrid_fields(filename, method, parameter, N_filt, output_path, comm):
     if comm.rank == 0:
         print(filename)
     out = {}
+    out_c = {}
     # Get writes
     with h5py.File(filename, 'r') as file:
         write_numbers = file['scales']['write_number'][:]
@@ -41,7 +42,7 @@ def save_subgrid_fields(filename, method, parameter, N_filt, output_path, comm):
     for index, write in enumerate(write_numbers):
         if comm.rank == 0: 
             print(index)
-        ψ = post.load_field_hdf5(filename, domain, 'ψ', index=index, layout='c')
+        ψ,time = post.load_field_hdf5(filename, domain, 'ψ', index=index, layout='c')
         if comm.rank == 0:
             print('Done loading fields')
         # Filter velocities
@@ -52,6 +53,8 @@ def save_subgrid_fields(filename, method, parameter, N_filt, output_path, comm):
         F = filter.build_filter(domain, method, parameter, N=N_filt)
         out['ux'] = F_ux = F(ux).evaluate()
         out['uy'] = F_uy = F(uy).evaluate()
+        out['omega'] = F(dx(uy)-dy(ux)).evaluate()
+        out['psi'] = F(ψ).evaluate()
         if comm.rank == 0: 
             print('Done filtering fields')
         # Compute implicitly filtered subgrid stress components
@@ -77,16 +80,18 @@ def save_subgrid_fields(filename, method, parameter, N_filt, output_path, comm):
             field.require_coeff_space()
             field.set_scales(N_filt / param_dns.N)
             out[key] = post.field_to_xarray(field, layout='g')
+            out_c[key+"_c"] = post.field_to_xarray(field, layout='c')
         if comm.rank == 0: 
             print('Done converting to xarray')
         # Save to netcdf
         if comm.rank == 0:
             output_filename = output_path.joinpath(f"write_{write}.nc")
-            ds = xr.Dataset(out)
+            ds = xr.merge([xr.Dataset(out),xr.Dataset(out_c)])
             ds.attrs['method'] = method
             ds.attrs['parameter'] = parameter
             ds.attrs['N_filt'] = N_filt
-            ds.to_netcdf(output_filename)
+            ds = ds.expand_dims("time").assign_coords(time=[time])
+            ds.to_netcdf(output_filename, engine='h5netcdf', invalid_netcdf=True)
         comm.barrier()
     if comm.rank == 0: 
         print('Done saving files')
@@ -129,5 +134,3 @@ if __name__ == "__main__":
     # Loop over files
     for filename in files:
         save_subgrid_fields(filename, method, parameter, N_filt, output_path, MPI.COMM_WORLD)
-
- 

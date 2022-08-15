@@ -22,7 +22,8 @@ def load_field_hdf5(filename, domain, task, index=-1, layout='g'):
         field.require_layout(layout)
         slices = field.layout.slices(scales=1)
         field.data[:] = file['tasks'][task][(index,)+slices]
-    return field
+        time = file['scales']['sim_time'][index]
+    return field,time
 
 
 def load_field_netcdf(filename, domain, task, layout='g'):
