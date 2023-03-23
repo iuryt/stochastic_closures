@@ -13,3 +13,6 @@ The main scientific questions explored are:
  - How different are subgrid stresses from different nearby turbulent solutions? 
  - How fast do nearby coarse-grained solutions diverge?
  - How quickly does the subgrid stresses decorrelate compared to the LES timestep?
+
+
+Check out the [video](https://youtu.be/FCil6NBZCyc?vq=hd1440) of some of those simulations.
