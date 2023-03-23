@@ -7,7 +7,9 @@ We use the [Dedalus package](https://github.com/DedalusProject/dedalus) to solve
 The computational resources used by this project were a separate challenge. We ran each pair of simulations on [MIT's Supercloud machine](https://supercloud.mit.edu/) using 16 nodes and 768 cores. This added up to a total of 200,000 CPU hours, including simulations and the analyzes.
 
 <img src="https://github.com/iuryt/stochastic_closures/blob/main/img/spinup.png" data-canonical-src="https://github.com/iuryt/stochastic_closures/blob/main/img/spinup.png" width="800" height="auto" />
-Figure: Spin-up time series of kinetic energy (A) and enstrophy (B). Colored vertical dashed lines mark the snapshots used to present the energy spectrum in C. D and E depict vorticity snapshots for t=0.2 and 10, respectively.
+
+**Figure:** Spin-up time series of kinetic energy (A) and enstrophy (B). Colored vertical dashed lines mark the snapshots used to present the energy spectrum in C. D and E depict vorticity snapshots for t=0.2 and 10, respectively.
+
 
 The main scientific questions explored are:
  - How different are subgrid stresses from different nearby turbulent solutions? 
